@@ -231,12 +231,33 @@ jobs:
           compiler: intel
           version: '2025.0'
 
-      - name: Report the toolchain
+      - name: Verify the toolchain matches the Conan profile
         shell: pwsh
         run: |
           & "${{ steps.setup.outputs.fc }}" --version 2>&1 | Select-Object -First 2
           Write-Host "  cl:   $((Get-Command cl).Source)"
           Write-Host "  link: $((Get-Command link).Source)"
+
+          # Conan's CMakeToolchain turns compiler.version into a Visual Studio
+          # installation and fails if that installation is not present -- the
+          # first Windows run died with "VS non-existing installation: Visual
+          # Studio 17" because the profile said 194 while the image ships VS 18.
+          # Check it here, where the message can say so plainly.
+          $clOut = (& cl 2>&1 | Out-String)
+          if ($clOut -notmatch 'Version (\d+)\.(\d+)') {
+            Write-Host "::error::could not parse a version out of cl.exe"
+            exit 1
+          }
+          # 19.51 -> msvc 195. Floor rather than a rounding cast, which would
+          # turn 19.59 into 196.
+          $actual = "$($Matches[1])$([math]::Floor([int]$Matches[2] / 10))"
+          $expected = (Select-String -Path conan-profiles/CI-CD/Windows-AMD64_profile.txt `
+                        -Pattern '^compiler\.version=(.+)$').Matches[0].Groups[1].Value
+          Write-Host "  cl reports $($Matches[1]).$($Matches[2]) -> msvc $actual (profile expects $expected)"
+          if ($actual -ne $expected) {
+            Write-Host "::error::cl.exe is msvc $actual but Windows-AMD64_profile.txt pins compiler.version=$expected"
+            exit 1
+          }
 
       - name: Install Conan
         shell: pwsh
