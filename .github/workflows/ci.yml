@@ -307,7 +307,11 @@ jobs:
         continue-on-error: true
         run: |
           call build\generators\conanbuild.bat
-          cmake -B dbg -S . -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_Fortran_COMPILER="${{ steps.setup.outputs.fc }}" -DCMAKE_Fortran_FLAGS="/traceback /check:all /debug:full /Od" -DOPTION_TARGET_MESSAGING=OFF -DOPTION_TARGET_TESTS=OFF
+          :: /DEBUG on the link line as well as /debug:full on the compile:
+          :: the first attempt at this produced a traceback whose frames were
+          :: all "Unknown", because no PDB was emitted next to the exe and
+          :: /traceback has nothing to resolve against without one.
+          cmake -B dbg -S . -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_Fortran_COMPILER="${{ steps.setup.outputs.fc }}" -DCMAKE_Fortran_FLAGS="/traceback /check:all /debug:full /Od /Zi" -DCMAKE_EXE_LINKER_FLAGS="/DEBUG" -DOPTION_TARGET_MESSAGING=OFF -DOPTION_TARGET_TESTS=OFF
           cmake --build dbg
           copy tests\resources\enzyme.nc dbg\probe.nc
           echo ---- running with traceback ----
