@@ -69,7 +69,16 @@ Module DataIO
 !Reads command line, reads model data, writes model data, writes state data
 
 USE netcdf
-USE F2KCLI
+! F2KCLI is deliberately not used here any more. It is a shim that predates
+! Fortran 2003, supplying COMMAND_ARGUMENT_COUNT and GET_COMMAND_ARGUMENT for
+! compilers that lacked them -- the only two routines this module ever took
+! from it. Both are standard intrinsics now, implemented natively by gfortran
+! and by Intel Fortran, so the shim adds nothing and costs portability: the
+! copy vendored here is the Unix variant, whose own header says it excludes
+! "compilers which require a special USE statement to make IARGC/GETARG
+! available", which is precisely Intel Fortran on Windows. Built against it,
+! all three Windows binaries died with an access violation as soon as they
+! touched the command line.
 USE GLOBALVARIABLES
 USE RateLaws
 
@@ -1851,9 +1860,11 @@ integer :: DataWritten, OldFillMode, NumSavedSpecies, DataLen
 Integer, Allocatable :: SaveSpeciesDataTemp(:)
 
 ! error is intent(out) and was only ever assigned on the ten failure paths
-! below, never on the success path. An intent(out) dummy starts undefined, so
-! the caller's `if (error == 1)` was reading whatever happened to be in that
-! stack slot. At -O0 it was reliably zero and everything worked; at -O1 and
+! below, never on the success path. The caller does set it to zero first, but
+! intent(out) promises the callee will define it, so at -O1 and above gfortran
+! deletes that store as dead code -- as the standard permits -- and the
+! `if (error == 1)` test in the caller then read an undefined stack slot.
+! At -O0 the store survives, which is why this looked fine there; at -O1 and
 ! above roughly half of all runs saw a non-zero value, printed the equally
 ! uninitialized 256-character errormsg as binary garbage, and stopped without
 ! simulating anything -- while still exiting 0.
