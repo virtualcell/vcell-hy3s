@@ -191,10 +191,13 @@ jobs:
         shell: pwsh
         continue-on-error: true
         run: |
-          # The assignment is padded so the closing operand sits past column
-          # 132. If the line is truncated, the result changes from 6 to 2 --
-          # or fails to parse. Either way the run below says which.
-          $pad = ' ' * 100
+          # The assignment is padded so the trailing "+ 3" sits past column 132.
+          # If the line is truncated there the sum becomes 3 instead of 6 --
+          # which is the outcome that matters, because truncated arithmetic can
+          # still parse and just compute something else. A previous version of
+          # this step used 100 spaces and only reached 115 columns, so it proved
+          # nothing; the assert below stops that from passing unnoticed again.
+          $pad = ' ' * 150
           @"
           program t
             integer :: a
@@ -202,7 +205,10 @@ jobs:
             print *, "a =", a
           end program
           "@ | Set-Content long.f90
-          Write-Host "  line 3 is $((Get-Content long.f90)[2].Length) columns"
+          $cols = (Get-Content long.f90)[2].Length
+          Write-Host "  line 3 is $cols columns"
+          if ($cols -le 132) { Write-Host "  PROBE IS INVALID -- line does not exceed 132"; exit 1 }
+          Write-Host "  expect 'a = 6' if the whole line is read, 'a = 3' if truncated at 132"
           foreach ($opt in @('', '/extend-source:132')) {
             $label = if ($opt) { $opt } else { '(no flag)' }
             Write-Host "---- $label ----"
