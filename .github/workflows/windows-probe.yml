@@ -25,7 +25,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ANSWERED: the vendored 2007 NetCDF C layer compiles under modern MSVC and
+  # produces netcdf.lib, with only C4293 shift warnings in ncx.c. Left here for
+  # the record but disabled, so re-runs do not repeat it.
   msvc-only:
+    if: false
     name: 1. NetCDF C layer under MSVC alone
     runs-on: windows-latest
     steps:
@@ -69,37 +73,33 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Intel oneAPI Fortran
-        id: oneapi
-        shell: pwsh
-        run: |
-          # oneAPI is a large download; the point of timing it here is to know
-          # whether a Windows job would be dominated by toolchain install.
-          $sw = [Diagnostics.Stopwatch]::StartNew()
-          choco install intel-oneapi-hpc-toolkit --no-progress -y 2>&1 | Select-Object -Last 15
-          $sw.Stop()
-          Write-Host "  install took $([int]$sw.Elapsed.TotalSeconds)s"
+      # fortran-lang/setup-fortran exists for exactly this and handles the
+      # oneAPI install and environment. The first attempt guessed at a
+      # chocolatey package name that does not exist.
+      - name: Install Intel Fortran
+        id: setup
+        uses: fortran-lang/setup-fortran@v1
+        continue-on-error: true
+        with:
+          compiler: intel
+          version: '2025.0'
 
-      - name: Locate ifx and report its version
+      - name: Report what the toolchain provides
         id: findifx
         shell: pwsh
         continue-on-error: true
         run: |
-          $roots = @("C:\Program Files (x86)\Intel\oneAPI", "C:\Program Files\Intel\oneAPI")
-          $ifx = $null
-          foreach ($r in $roots) {
-            if (Test-Path $r) {
-              Write-Host "  oneAPI root: $r"
-              $ifx = Get-ChildItem -Path $r -Filter ifx.exe -Recurse -ErrorAction SilentlyContinue |
-                     Select-Object -First 1
-            }
-          }
+          Write-Host "  action reported FC=${{ steps.setup.outputs.fc }}"
+          $ifx = (Get-Command ifx -ErrorAction SilentlyContinue).Source
+          if (-not $ifx -and "${{ steps.setup.outputs.fc }}") { $ifx = "${{ steps.setup.outputs.fc }}" }
           if ($ifx) {
-            Write-Host "  ifx: $($ifx.FullName)"
-            "ifx=$($ifx.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            & $ifx.FullName --version 2>&1 | Select-Object -First 3
+            Write-Host "  ifx: $ifx"
+            "ifx=$ifx" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            & $ifx --version 2>&1 | Select-Object -First 3
           } else {
-            Write-Host "  ifx NOT FOUND -- questions 3 and 4 cannot be answered"
+            Write-Host "  no Fortran compiler on PATH -- questions 3 and 4 cannot be answered"
+            Write-Host "  chocolatey packages matching intel, for reference:"
+            choco search intel --limit-output 2>&1 | Select-Object -First 20
           }
 
       - name: 3. Does ifx accept the converted directives and mangle as expected?
