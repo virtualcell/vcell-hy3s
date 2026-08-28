@@ -276,30 +276,32 @@ jobs:
           conan install . --build=missing `
             -pr:a=conan-profiles/CI-CD/Windows-AMD64_profile.txt
 
+      # cmd rather than pwsh for the three steps that need Conan's environment:
+      # on Windows Conan generates conanbuild.bat, not a PowerShell script, so
+      # these steps `call` it the way it is meant to be used. Each `run:` is a
+      # fresh shell, hence the repeated call.
       - name: Configure
-        shell: pwsh
+        shell: cmd
         run: |
-          # Ninja rather than the Visual Studio generator: the VS generator needs
-          # oneAPI's IDE integration to see Fortran at all, which setup-fortran
-          # does not install. Ninja simply runs the compilers.
-          & build/generators/conanbuild.ps1
-          cmake -B build -S . -G Ninja `
-            -DCMAKE_TOOLCHAIN_FILE="$PWD/build/generators/conan_toolchain.cmake" `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl `
-            -DCMAKE_Fortran_COMPILER="${{ steps.setup.outputs.fc }}" `
-            -DOPTION_TARGET_MESSAGING=OFF
+          if not exist build\generators\conanbuild.bat (echo ::error::conanbuild.bat missing -- conan install did not generate it & exit /b 1)
+          call build\generators\conanbuild.bat
+          :: Ninja rather than the Visual Studio generator: the VS generator
+          :: needs oneAPI's IDE integration to see Fortran at all, which
+          :: setup-fortran does not install. Ninja simply runs the compilers.
+          cmake -B build -S . -G Ninja -DCMAKE_TOOLCHAIN_FILE="%CD%\build\generators\conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_Fortran_COMPILER="${{ steps.setup.outputs.fc }}" -DOPTION_TARGET_MESSAGING=OFF
 
       - name: Build
-        shell: pwsh
+        shell: cmd
         run: |
-          & build/generators/conanbuild.ps1
+          if not exist build\generators\conanbuild.bat (echo ::error::conanbuild.bat missing -- conan install did not generate it & exit /b 1)
+          call build\generators\conanbuild.bat
           cmake --build build
 
       - name: Test
-        shell: pwsh
+        shell: cmd
         run: |
-          & build/generators/conanbuild.ps1
+          if not exist build\generators\conanbuild.bat (echo ::error::conanbuild.bat missing -- conan install did not generate it & exit /b 1)
+          call build\generators\conanbuild.bat
           ctest --test-dir build --output-on-failure
 
       - name: Upload solver binaries
