@@ -1850,6 +1850,16 @@ integer :: CDFMaxDepList, CDFMaxDepListID, NumBinsID, ModelsID, NumSavedSpeciesI
 integer :: DataWritten, OldFillMode, NumSavedSpecies, DataLen
 Integer, Allocatable :: SaveSpeciesDataTemp(:)
 
+! error is intent(out) and was only ever assigned on the ten failure paths
+! below, never on the success path. An intent(out) dummy starts undefined, so
+! the caller's `if (error == 1)` was reading whatever happened to be in that
+! stack slot. At -O0 it was reliably zero and everything worked; at -O1 and
+! above roughly half of all runs saw a non-zero value, printed the equally
+! uninitialized 256-character errormsg as binary garbage, and stopped without
+! simulating anything -- while still exiting 0.
+ error = 0
+ errormsg = ''
+
  status = NF90_open(path = trim(filename),mode = IOR(NF90_Write,NF90_Share),ncid = fileunit)
 
  if (status /= NF90_NoErr) THEN
