@@ -1,0 +1,141 @@
+name: Windows probe
+
+# Throwaway reconnaissance for a Windows build. Delete once the answer is known.
+#
+# MSVC cannot build this on its own -- it has no Fortran compiler. The original
+# Windows build paired Intel Fortran with MSVC, and the evidence survives in the
+# tree: -DPowerStationFortran and netcdf/win32/config.h for the C layer, Intel's
+# /iface flags for the F90 layer, and the uppercase __cdecl entry points in
+# msgwrapper.cpp. Nothing here needs MSYS2 or Cygwin: unlike Chombo, Hy3S has no
+# build system of its own, just CMake over plain Fortran.
+#
+# So the question is whether Intel oneAPI's ifx still does that job. Four parts,
+# cheapest first, each independent so one failure does not hide the rest:
+#
+#   1. Does the vendored 2007 NetCDF C layer still compile under modern MSVC?
+#      That needs no Fortran at all, so it is checked first and alone.
+#   2. Does ifx install on a runner, and what does it cost in time?
+#   3. Does ifx accept the #if directives converted from !DEC$, and does it
+#      still mangle names the way msgwrapper.cpp expects?
+#   4. Does CMake pair ifx with cl.exe and build the real thing?
+
+on:
+  push:
+    branches: [ windows-probe ]
+  workflow_dispatch:
+
+jobs:
+  msvc-only:
+    name: 1. NetCDF C layer under MSVC alone
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure just the C library
+        shell: pwsh
+        run: |
+          # netcdf/libsrc is the C layer. Building it alone answers whether the
+          # 2007 sources survive eighteen years of MSVC, without involving
+          # Fortran at all.
+          @'
+          cmake_minimum_required(VERSION 3.20)
+          project(nc_c_only LANGUAGES C)
+          if (MSVC)
+            add_definitions(-DPowerStationFortran /D_CRT_SECURE_NO_WARNINGS)
+            include_directories(win32)
+          endif()
+          include_directories(libsrc)
+          add_subdirectory(libsrc)
+          '@ | Set-Content netcdf/CMakeLists.probe.txt
+          Copy-Item netcdf/CMakeLists.txt netcdf/CMakeLists.orig.txt
+          Copy-Item netcdf/CMakeLists.probe.txt netcdf/CMakeLists.txt
+          cmake -B nc-c -S netcdf -DCMAKE_BUILD_TYPE=Release 2>&1 | Select-Object -Last 20
+
+      - name: Build it
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          cmake --build nc-c --config Release 2>&1 | Select-Object -Last 40
+          Write-Host "---- summary ----"
+          if (Test-Path nc-c/Release/netcdf.lib) { Write-Host "  netcdf.lib BUILT" }
+          elseif (Test-Path nc-c/libsrc/Release/netcdf.lib) { Write-Host "  netcdf.lib BUILT" }
+          else { Write-Host "  netcdf.lib NOT built" }
+
+  intel-fortran:
+    name: 2-4. Intel Fortran (ifx) with MSVC
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Intel oneAPI Fortran
+        id: oneapi
+        shell: pwsh
+        run: |
+          # oneAPI is a large download; the point of timing it here is to know
+          # whether a Windows job would be dominated by toolchain install.
+          $sw = [Diagnostics.Stopwatch]::StartNew()
+          choco install intel-oneapi-hpc-toolkit --no-progress -y 2>&1 | Select-Object -Last 15
+          $sw.Stop()
+          Write-Host "  install took $([int]$sw.Elapsed.TotalSeconds)s"
+
+      - name: Locate ifx and report its version
+        id: findifx
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $roots = @("C:\Program Files (x86)\Intel\oneAPI", "C:\Program Files\Intel\oneAPI")
+          $ifx = $null
+          foreach ($r in $roots) {
+            if (Test-Path $r) {
+              Write-Host "  oneAPI root: $r"
+              $ifx = Get-ChildItem -Path $r -Filter ifx.exe -Recurse -ErrorAction SilentlyContinue |
+                     Select-Object -First 1
+            }
+          }
+          if ($ifx) {
+            Write-Host "  ifx: $($ifx.FullName)"
+            "ifx=$($ifx.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            & $ifx.FullName --version 2>&1 | Select-Object -First 3
+          } else {
+            Write-Host "  ifx NOT FOUND -- questions 3 and 4 cannot be answered"
+          }
+
+      - name: 3. Does ifx accept the converted directives and mangle as expected?
+        if: steps.findifx.outputs.ifx != ''
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          # The !DEC$ IF directives were converted to #if defined(...) so the
+          # sources build with gfortran. Intel's fpp should handle them too --
+          # if it does not, the conversion broke the compiler this code was
+          # written for, which would matter a great deal.
+          @'
+          program t
+          #if defined(MILSTEIN)
+            print *, "MILSTEIN branch taken"
+          #else
+            print *, "default branch taken"
+          #endif
+            print *, "version " // SVNVERSION
+          end program
+          '@ | Set-Content probe.f90
+          & "${{ steps.findifx.outputs.ifx }}" /fpp /DMILSTEIN /DSVNVERSION="""abc123""" probe.f90 /o probe.exe 2>&1 | Select-Object -Last 10
+          if (Test-Path probe.exe) { ./probe.exe } else { Write-Host "  ifx could not build the probe" }
+
+      - name: 4. Does CMake pair ifx with cl.exe on the real sources?
+        if: steps.findifx.outputs.ifx != ''
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:FC = "${{ steps.findifx.outputs.ifx }}"
+          # Messaging off, so there is nothing external to resolve at all --
+          # NetCDF is vendored and libcurl is only needed for messaging.
+          cmake -B win -S . -DCMAKE_BUILD_TYPE=Release -DOPTION_TARGET_MESSAGING=OFF 2>&1 |
+            Select-Object -Last 30
+          Write-Host "---- building ----"
+          cmake --build win --config Release 2>&1 | Select-Object -Last 40
+          Write-Host "---- what came out ----"
+          Get-ChildItem -Path win -Filter "Hybrid_*" -Recurse -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Host "  $($_.FullName)" }
