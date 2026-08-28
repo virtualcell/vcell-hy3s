@@ -27,12 +27,15 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 	set(LINUX TRUE)
 endif ()
 
-# Windows would need gfortran under MSYS2/MinGW plus the vendored NetCDF built
-# there. Not attempted; see README.md.
-if (WIN32 AND NOT MINGW)
-	message(FATAL_ERROR
-			"On Windows this would need MSYS2/MinGW-w64 for gfortran. MSVC has no Fortran "
-			"compiler, and the vendored NetCDF has not been built there.")
+# On Windows the intended pairing is Intel Fortran with MSVC, which is what
+# this was originally built with. MSVC has no Fortran compiler of its own, so
+# project() above will already have failed if none was supplied; this only
+# catches the case where some other Fortran compiler was found, since the
+# Windows-specific flags below assume Intel.
+if (WIN32 AND NOT MINGW AND NOT CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+	message(WARNING
+			"On Windows this expects Intel Fortran (ifx) alongside MSVC, but found "
+			"'${CMAKE_Fortran_COMPILER_ID}'. See README.md.")
 endif ()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -69,7 +72,14 @@ if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
 	# the original sources, which assume no 132-column limit.
 	set(HY3S_Fortran_FLAGS -cpp -ffree-line-length-none)
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-	set(HY3S_Fortran_FLAGS -fpp)
+	# The original Makefiles passed no preprocessor flag at all: Intel handled
+	# !DEC$ IF natively as compiler directives, with -D supplying the symbols.
+	# Converting them to #if is what makes a preprocessor pass necessary.
+	if (WIN32)
+		set(HY3S_Fortran_FLAGS /fpp)
+	else ()
+		set(HY3S_Fortran_FLAGS -fpp)
+	endif ()
 else ()
 	message(WARNING
 			"Unrecognised Fortran compiler ${CMAKE_Fortran_COMPILER_ID}; the sources need "
