@@ -38,6 +38,26 @@ if (OPTION_TARGET_MESSAGING)
 	target_compile_definitions(hy3s_messaging PUBLIC USE_MESSAGING)
 endif ()
 
+# mainprogram-HyJCMSS.f90 refuses to compile without SVNVERSION:
+#
+#     #ifndef SVNVERSION
+#     #error "SVNVERSION required"
+#     #endif
+#
+# and it goes into the version banner. It is defined already quoted, because
+# gfortran's -cpp preprocesses in traditional mode and cannot stringify.
+# Nothing in vcell-solvers ever
+# defined it, so Hy3S could not have been built there either -- consistent with
+# it being switched off in every CI recipe. The intent was to stamp the binary
+# with a VCS revision, so the git describe already computed at the top level
+# serves, falling back when this is not a git checkout.
+if (GIT_DESCRIBE AND NOT GIT_DESCRIBE MATCHES "NOTFOUND")
+	set(HY3S_VERSION_STAMP "${GIT_DESCRIBE}")
+else ()
+	set(HY3S_VERSION_STAMP "unknown")
+endif ()
+message(STATUS "Hy3S version stamp: ${HY3S_VERSION_STAMP}")
+
 ##
 # add_hy3s_solver(<name> [DEFINITIONS ...])
 ##
@@ -50,12 +70,20 @@ function(add_hy3s_solver NAME)
 	endif ()
 
 	add_executable(${exe} ${F90_SRC_FILES})
-	set_target_properties(${exe} PROPERTIES LINKER_LANGUAGE Fortran)
+	# Each target compiles the same sources, so each generates the same .mod
+	# files. Without a private module directory they collide and ninja refuses:
+	# "multiple rules generate Hy3S/f2kcli.mod".
+	set_target_properties(${exe} PROPERTIES
+			LINKER_LANGUAGE Fortran
+			Fortran_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/modules/${exe}")
+	target_compile_options(${exe} PRIVATE ${HY3S_Fortran_FLAGS})
 
 	# netcdf_f90 provides the module Hy3S does `USE netcdf` against; the module
 	# file lands in that target's binary directory.
 	target_include_directories(${exe} PRIVATE "${CMAKE_BINARY_DIR}/netcdf/f90")
 	target_link_libraries(${exe} PRIVATE netcdf_f90 netcdf_for netcdf)
+
+	target_compile_definitions(${exe} PRIVATE SVNVERSION="${HY3S_VERSION_STAMP}")
 
 	if (ARG_DEFINITIONS)
 		target_compile_definitions(${exe} PRIVATE ${ARG_DEFINITIONS})

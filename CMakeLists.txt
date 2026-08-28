@@ -60,16 +60,21 @@ git_describe(GIT_DESCRIBE)
 # would still try to link the messaging calls. Those 114 directives were
 # converted to standard #if/#else/#endif when this repo was split out, which
 # means the Fortran now has to go through the C preprocessor.
+# The flag is applied to the Hy3S targets only, not globally. The vendored
+# NetCDF does not need preprocessing, and running cpp over it turns every
+# apostrophe in a Fortran comment -- doesn't, can't, haven't -- into a warning
+# about an unterminated character constant.
 if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
 	# -cpp is gfortran's spelling of Intel's -fpp. The line-length flag is for
-	# the original sources, which assume a compiler with no 132-column limit.
-	set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -ffree-line-length-none")
+	# the original sources, which assume no 132-column limit.
+	set(HY3S_Fortran_FLAGS -cpp -ffree-line-length-none)
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-	set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fpp")
+	set(HY3S_Fortran_FLAGS -fpp)
 else ()
 	message(WARNING
 			"Unrecognised Fortran compiler ${CMAKE_Fortran_COMPILER_ID}; the sources need "
 			"the C preprocessor run over them and no flag is being added for that.")
+	set(HY3S_Fortran_FLAGS "")
 endif ()
 
 #############################################

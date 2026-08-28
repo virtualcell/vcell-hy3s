@@ -101,9 +101,11 @@ Real*8 :: SumAvgModelTime
 #ifndef SVNVERSION
 #error "SVNVERSION required"
 #endif
-#define VCELLSVNQ(x) #x
-#define VCELLSVNQUOTE(x) VCELLSVNQ(x)
-    print *, "Virtual Cell version $URL$"VCELLSVNQUOTE(SVNVERSION) 
+! The build supplies SVNVERSION already quoted, and this concatenates it.
+! It previously stringified an unquoted macro with #x, which gfortran cannot do:
+! -cpp preprocesses in traditional mode, predating ANSI stringification. The
+! $URL$ was an SVN keyword that stopped expanding when the project left SVN.
+    print *, "Virtual Cell version " // SVNVERSION
 
 Call cpu_time(t1)
 
@@ -398,7 +400,12 @@ do j=LastModel+1,NumModels
  		if ((time2-time1) >= 2) THEN
  			percentile = ((i*1.0)/(Trials*1.0));
 #if defined(USE_MESSAGING)
- 			Call send_progress(percentile, i)
+! send_progress takes a double by reference on the C side. `i` is the
+! Integer trial counter, so this passed a 4-byte integer where 8 bytes are
+! dereferenced -- a real bug, latent because Hy3S was never built in CI and
+! Intel's implicit interfaces would not have caught it. Converted explicitly,
+! which keeps the value the author meant to send.
+ 			Call send_progress(percentile, dble(i))
 #else
  			print*,'[[[progress:',percentile*100,'%]]]'
 #endif

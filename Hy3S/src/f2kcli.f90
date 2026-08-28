@@ -69,8 +69,13 @@
 ! really be necessary. However, at least one compiler (PGI) comments
 ! on their absence, so they are included for completeness.
 !
+! gfortran provides IARGC as an intrinsic, and declaring it EXTERNAL here forces
+! an unresolved `iargc_` at link instead. The author's note above says these are
+! not really necessary, so they are kept only for compilers that wanted them.
+#ifndef __GFORTRAN__
       INTEGER :: IARGC
       EXTERNAL   IARGC
+#endif
 !
 ! Under Unix we must reconstruct the command line from its constituent
 ! parts. This will not be the original command line. Rather it will be
@@ -119,8 +124,13 @@
 ! really be necessary. However, at least one compiler (PGI) comments
 ! on their absence, so they are included for completeness.
 !
+! gfortran provides IARGC as an intrinsic, and declaring it EXTERNAL here forces
+! an unresolved `iargc_` at link instead. The author's note above says these are
+! not really necessary, so they are kept only for compilers that wanted them.
+#ifndef __GFORTRAN__
       INTEGER :: IARGC
       EXTERNAL   IARGC
+#endif
 !
       COMMAND_ARGUMENT_COUNT = IARGC()
       RETURN
@@ -183,8 +193,13 @@
 ! really be necessary. However, at least one compiler (PGI) comments
 ! on their absence, so they are included for completeness.
 !
+! gfortran provides IARGC as an intrinsic, and declaring it EXTERNAL here forces
+! an unresolved `iargc_` at link instead. The author's note above says these are
+! not really necessary, so they are kept only for compilers that wanted them.
+#ifndef __GFORTRAN__
       INTEGER :: IARGC
       EXTERNAL   IARGC
+#endif
 !
 ! Possible error codes:
 ! 1 = Argument number is less than minimum
