@@ -17,6 +17,7 @@ project(vcell-hy3s LANGUAGES C CXX Fortran)
 #  Declare options
 ##############################################
 option(OPTION_TARGET_MESSAGING "Progress messaging (requires libcurl)" OFF)
+option(OPTION_TARGET_TESTS "Build the solver tests" ON)
 option(OPTION_EXTRA_CONFIG_INFO "Print useful cmake debug info while configuring" OFF)
 
 #############################################
@@ -111,6 +112,11 @@ if (OPTION_TARGET_MESSAGING)
 endif ()
 
 add_subdirectory(Hy3S)
+
+if (OPTION_TARGET_TESTS)
+	enable_testing()
+	add_subdirectory(tests)
+endif ()
 
 #############################################
 #  Debug output
