@@ -66,26 +66,57 @@ two changes: declaring C alongside Fortran, and dropping a hardcoded path to the
 Intel compiler.
 
 `netcdf/f90/netcdf_f90.lib` and `netcdf/libsrc/netcdf.lib` are committed 2007-era
-MSVC binaries. Nothing in the build references them; they survive from the
-original import and are worth deleting once the Windows question is settled.
+MSVC binaries. Nothing in the build references them — the Windows job builds
+both libraries from the vendored sources — so they can be deleted whenever
+someone is comfortable removing them.
+
+## Tests
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Five cases in about six seconds, on all three platforms. The substantive checks
+are exact rather than tolerance-based: the enzyme-kinetics model conserves total
+enzyme and total substrate at every timepoint by stoichiometry, independent of
+the trajectory. See [tests/README.md](tests/README.md), which also explains why
+one case runs the solver twenty times.
 
 ## Platforms
 
-Linux and macOS build with GCC. **Windows is not wired up yet**, but is more
-tractable than it first appears — see below.
+All three build in CI: Linux and macOS (arm64 and x86_64) with GCC, Windows with
+Intel Fortran and MSVC.
 
-MSVC has no Fortran compiler, so it cannot build this alone. The original
-Windows build paired **Intel Fortran with MSVC**, and the evidence is still in
-the tree: `-DPowerStationFortran` and a `netcdf/win32/config.h` for the C layer,
-Intel's `/iface:mixed_str_len_arg` flags for the F90 layer, and the uppercase
+Linux and macOS use GCC because Clang has no Fortran compiler, and gfortran's
+runtime links against libstdc++, so the libc++ toolchain the ODE repo uses is
+not an option either.
+
+Windows pairs **Intel Fortran (`ifx`) with MSVC**, which is what this code was
+originally built with — the evidence is still in the tree:
+`-DPowerStationFortran` and a `netcdf/win32/config.h` for the C layer, Intel's
+`/iface:mixed_str_len_arg` flags for the F90 layer, and the uppercase
 `__cdecl LOAD_JMS_INFO` entry points in `msgwrapper.cpp` that match Intel
-Fortran's Windows name mangling.
+Fortran's Windows name mangling. MSVC compiles the C and C++, `ifx` compiles the
+Fortran and hands the link to MSVC's `link.exe`.
 
-The modern equivalent is Intel oneAPI's `ifx`, which still integrates with
-Visual Studio. Nothing here needs MSYS2 or Cygwin: unlike Chombo, Hy3S has no
-build system of its own — no GNU make, no perl, no custom preprocessor, just
-CMake over plain Fortran. With messaging off, a Windows build would have **no
-external dependencies whatsoever**.
+**No MSYS2 or Cygwin is involved.** Unlike Chombo, Hy3S has no build system of
+its own — no GNU make, no perl, no custom preprocessor, just CMake over plain
+Fortran. Messaging is off on Windows, as everywhere in VCell, which leaves the
+Windows build with **no external dependencies whatsoever**.
+
+Two things are worth knowing if you touch the Windows build:
+
+- `ifx` must be invoked with the MSVC developer environment active. Without it
+  it fails with `error #10037: could not find 'link'`, and CMake reports the
+  Fortran compiler as `unknown` — compiler identification links a test program.
+- The build uses the Ninja generator, not the Visual Studio one, which needs
+  oneAPI's IDE integration to see Fortran at all.
+
+Both compilers were checked against the two things this repo changed in the
+Fortran. `ifx` accepts the `#if` directives converted from `!DEC$ IF`, and it
+reads source lines past column 132 — `ratelaws.f90` has arithmetic reaching 150
+columns, which gfortran takes via `-ffree-line-length-none` and for which Intel
+has no unlimited equivalent. Neither was assumed; a probe measured both.
 
 ## Provenance
 
@@ -121,9 +152,21 @@ defects rather than configuration:
   four bytes read as eight. Invisible until now, since Hy3S was never built and
   Intel's implicit interfaces would not have flagged it.
 - **`f2kcli` declared `IARGC` `EXTERNAL`**, which defeats gfortran's intrinsic
-  and leaves `iargc_` unresolved at link. The file's own comment says those
-  declarations "should not really be necessary" and were added for PGI, so they
-  are guarded out for gfortran and kept for everything else.
+  and leaves `iargc_` unresolved at link. Intel Fortran turned out to provide
+  `IARGC` as an intrinsic too, and failed the same way. The file's own comment
+  says those declarations "should not really be necessary" and were added for
+  PGI, so they are now made for PGI alone.
+- **An uninitialised error flag stopped about one optimised run in five.**
+  `CheckAndDefineVariables` declares `integer, intent(out) :: error` and assigns
+  it only on its ten failure paths, never on success. The caller does set it to
+  zero first — but `intent(out)` promises the callee will define it, so at `-O1`
+  and above gfortran deletes that store as dead code, exactly as the standard
+  permits, and the subsequent `if (error == 1)` read an undefined stack slot.
+  Affected runs printed the equally undefined 256-character `errormsg` as binary
+  garbage and stopped without simulating — **while still exiting 0 and leaving
+  the output file untouched.** At `-O0` the store survives, which is why the
+  solver looked fine there. This is why the test suite asserts that a run
+  actually happened, and why one case repeats twenty times.
 
 `msgwrapper` also drove the old in-tree `SimulationMessaging` — `create()`, an
 explicit `start()`, and `new WorkerEvent(JOB_PROGRESS, …)`. None of that exists
