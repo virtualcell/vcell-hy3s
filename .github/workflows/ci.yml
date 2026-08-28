@@ -297,6 +297,22 @@ jobs:
           call build\generators\conanbuild.bat
           cmake --build build
 
+      # TEMPORARY: the Release binaries crash with "forrtl: severe (157):
+      # Program Exception - access violation" right after the version banner,
+      # and the traceback carries no symbols. This builds the same sources with
+      # traceback and full runtime checks to get a source line, then runs one
+      # solver. Delete once the crash is understood.
+      - name: Diagnose the Windows crash
+        shell: cmd
+        continue-on-error: true
+        run: |
+          call build\generators\conanbuild.bat
+          cmake -B dbg -S . -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_Fortran_COMPILER="${{ steps.setup.outputs.fc }}" -DCMAKE_Fortran_FLAGS="/traceback /check:all /debug:full /Od" -DOPTION_TARGET_MESSAGING=OFF -DOPTION_TARGET_TESTS=OFF
+          cmake --build dbg
+          copy tests\resources\enzyme.nc dbg\probe.nc
+          echo ---- running with traceback ----
+          dbg\bin\Hybrid_EM_x64.exe dbg\probe.nc 100000 1000000 0.01 1e-5 -R 12345 -OV
+
       - name: Test
         shell: cmd
         run: |
