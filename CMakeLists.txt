@@ -88,6 +88,25 @@ else ()
 	set(HY3S_Fortran_FLAGS "")
 endif ()
 
+# /iface:mixed_str_len_arg governs where Fortran puts the hidden length that
+# accompanies every character argument: immediately after the string, rather
+# than all lengths appended at the end of the argument list. The vendored
+# NetCDF F77 layer is C compiled with -DPowerStationFortran, and cfortran.h
+# under that setting expects the first of those. Both sides have to agree.
+#
+# Unlike the preprocessor flag above this is set globally, and has to be: it is
+# a calling convention, so netcdf_f90 and the Hy3S targets that call into it
+# must be compiled the same way. The original build did exactly this, in two
+# places -- CMAKE_Fortran_FLAGS for the F90 layer and FOPTIONS in
+# Makefile.win32 for Hy3S itself.
+#
+# Dropping it during the repo split is what made all three Windows binaries
+# die with an access violation on their first NetCDF call: nf90_open passed a
+# path whose length the C side then read from the wrong place.
+if (WIN32 AND CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+	set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} /iface:mixed_str_len_arg")
+endif ()
+
 #############################################
 #  Dependencies
 ##############################################
