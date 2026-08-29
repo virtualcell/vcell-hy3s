@@ -15,6 +15,23 @@
 set(HY3S_TEST_MODEL "${CMAKE_CURRENT_SOURCE_DIR}/resources/enzyme.nc")
 set(HY3S_TEST_WORKDIR "${CMAKE_CURRENT_BINARY_DIR}/work")
 
+# The baseline is per compiler, not per platform. Fortran's RANDOM_NUMBER has
+# no specified algorithm, so gfortran and Intel seed and advance different
+# generators: the same seed gives a different stream and therefore a different,
+# equally valid trajectory. Measured, once Windows started working -- Linux and
+# both macOS architectures agree with each other to the bit, all being gfortran,
+# while Intel diverges immediately and by a lot (State[0][1][0] 482 against
+# 522). That is the RNG differing, not the solver.
+#
+# Only the baseline is affected. Every other check here follows from the
+# reaction stoichiometry and holds on all four jobs regardless of trajectory.
+if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+	set(HY3S_BASELINE "${CMAKE_CURRENT_SOURCE_DIR}/resources/enzyme_baseline_intel.nc")
+else ()
+	set(HY3S_BASELINE "${CMAKE_CURRENT_SOURCE_DIR}/resources/enzyme_baseline_gfortran.nc")
+endif ()
+message(STATUS "Hy3S test baseline: ${HY3S_BASELINE}")
+
 add_executable(hy3s_check hy3s_check.c)
 target_link_libraries(hy3s_check PRIVATE netcdf)
 # The netcdf target sets no usage requirements of its own -- the vendored build
@@ -81,17 +98,17 @@ set(HY3S_ADAPTIVE_ARGS 100000 1000000 0.01 1e-3 1e-5  -R 12345 -OV)
 add_hy3s_test(euler_maruyama
 		SOLVER Hybrid_EM${_sfx}
 		ARGS ${HY3S_FIXED_ARGS}
-		CHECKS --baseline "${CMAKE_CURRENT_SOURCE_DIR}/resources/enzyme_baseline.nc")
+		CHECKS --baseline "${HY3S_BASELINE}")
 
 add_hy3s_test(milstein
 		SOLVER Hybrid_MIL${_sfx}
 		ARGS ${HY3S_FIXED_ARGS}
-		CHECKS --baseline "${CMAKE_CURRENT_SOURCE_DIR}/resources/enzyme_baseline.nc")
+		CHECKS --baseline "${HY3S_BASELINE}")
 
 add_hy3s_test(milstein_adaptive
 		SOLVER Hybrid_MIL_Adaptive${_sfx}
 		ARGS ${HY3S_ADAPTIVE_ARGS}
-		CHECKS --baseline "${CMAKE_CURRENT_SOURCE_DIR}/resources/enzyme_baseline.nc")
+		CHECKS --baseline "${HY3S_BASELINE}")
 
 # A different seed must still satisfy every invariant, which is what makes the
 # invariants worth having: they constrain the solver rather than one trajectory.
@@ -108,4 +125,4 @@ add_hy3s_test(reproducibility
 		SOLVER Hybrid_EM${_sfx}
 		REPEAT 20
 		ARGS ${HY3S_FIXED_ARGS}
-		CHECKS --baseline "${CMAKE_CURRENT_SOURCE_DIR}/resources/enzyme_baseline.nc")
+		CHECKS --baseline "${HY3S_BASELINE}")

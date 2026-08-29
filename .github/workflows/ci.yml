@@ -302,6 +302,26 @@ jobs:
       # and the traceback carries no symbols. This builds the same sources with
       # traceback and full runtime checks to get a source line, then runs one
       # solver. Delete once the crash is understood.
+      # TEMPORARY: produces the Intel baseline, which cannot be generated
+      # anywhere but here -- Fortran's RANDOM_NUMBER is not a specified
+      # algorithm, so Intel's stream differs from gfortran's and the two need
+      # separate baselines. Delete this step once the file is committed.
+      - name: Capture the Intel baseline
+        shell: cmd
+        continue-on-error: true
+        run: |
+          call build\generators\conanbuild.bat
+          copy tests\resources\enzyme.nc baseline_intel.nc
+          build\bin\Hybrid_EM_x64.exe baseline_intel.nc 100000 1000000 0.01 1e-5 -R 12345 -OV
+
+      - name: Upload the Intel baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: enzyme-baseline-intel
+          path: baseline_intel.nc
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Test
         shell: cmd
         run: |
