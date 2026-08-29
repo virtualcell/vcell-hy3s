@@ -65,10 +65,11 @@ was written against, and builds cleanly with modern gcc/gfortran. It needed only
 two changes: declaring C alongside Fortran, and dropping a hardcoded path to the
 Intel compiler.
 
-`netcdf/f90/netcdf_f90.lib` and `netcdf/libsrc/netcdf.lib` are committed 2007-era
-MSVC binaries. Nothing in the build references them — the Windows job builds
-both libraries from the vendored sources — so they can be deleted whenever
-someone is comfortable removing them.
+Three committed 2007-era MSVC binaries — `netcdf_f90.lib`, `netcdf_for.lib` and
+`netcdf.lib` — have been deleted. Nothing in the CMake build referenced them,
+and the Windows job builds all three libraries from the vendored sources. The
+only things that named them were the superseded `Makefile.win32` files, which
+still point at a `netcdf-3.6.2/` directory this repo does not have.
 
 ## Tests
 
