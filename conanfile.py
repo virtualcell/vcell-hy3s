@@ -29,10 +29,18 @@ class VCellHy3SRecipe(ConanFile):
             self.folders.generators = "build/generators"
 
     def validate(self):
-        if self.settings.os == "Windows" and self.settings.compiler != "gcc":
+        # Windows builds with Intel Fortran (ifx) driving MSVC, which is what
+        # this code was originally built with -- MSVC compiles the C and C++,
+        # ifx the Fortran, and ifx hands the link off to MSVC's link.exe. No
+        # MSYS2 or MinGW is involved. Conan has no Fortran setting to check
+        # here, so the compiler pairing is asserted by CMakeLists.txt instead.
+        #
+        # Messaging is off on Windows, which leaves no external dependency at
+        # all: NetCDF is vendored and libcurl is only needed for messaging.
+        if self.settings.os == "Windows" and self.options.include_messaging:
             raise ValueError(
-                "Hy3S is Fortran; on Windows it would need MinGW-w64 gfortran under "
-                f"MSYS2. compiler={self.settings.compiler} has no Fortran compiler."
+                "Messaging is not built on Windows. Configure with "
+                "-o include_messaging=False."
             )
 
     def requirements(self):
