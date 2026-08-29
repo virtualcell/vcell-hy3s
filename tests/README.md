@@ -61,20 +61,42 @@ runs caught it in five suite runs out of five. Anything that intermittent needs
 repetition to be tested at all, and repeating asserts the property the defect
 violated: same seed, same answer.
 
-## The baseline
+## The baselines — one per compiler
 
-`resources/enzyme_baseline.nc` is a committed solution, compared elementwise at
-`rtol 1e-9`. It is the only check here that depends on the trajectory, and so
-the only one that could legitimately differ between platforms. The trajectory
-proved stable against floating-point reassociation locally — `-O0` and `-O2`
-agree byte for byte — which is what suggested a single shared baseline would
-hold. If a platform ever disagrees, the invariant checks are the ones to trust;
-the baseline is a regression tripwire, not a statement about correctness.
+There are two, selected by `CMAKE_Fortran_COMPILER_ID`:
 
-To regenerate it after an intentional change:
+| file | produced by |
+| --- | --- |
+| `resources/enzyme_baseline_gfortran.nc` | Linux and both macOS architectures |
+| `resources/enzyme_baseline_intel.nc` | Windows |
+
+They differ because **Fortran's `RANDOM_NUMBER` has no specified algorithm.**
+gfortran and Intel run different generators, so the same seed produces a
+different stream and a different — equally valid — trajectory. The trajectory is
+therefore a property of the compiler, not the platform, which is why Linux,
+macOS arm64 and macOS x86_64 all match each other to the bit while Intel
+diverges from the first save point (`S` = 482 against 522).
+
+The two are the same physics with different noise. Peak separation is 380
+molecules out of 60200, about 0.6%, against a Poisson fluctuation scale of
+√60200 ≈ 245; both end at 59788 and 59787 product respectively, both heading to
+60200. Nothing about that is a defect — it is what two draws from the same
+distribution look like.
+
+This is the only trajectory-dependent check here, compared elementwise at
+`rtol 1e-9`. It is a regression tripwire against unintended change, **not** a
+statement that either trajectory is the correct one. If a job ever disagrees,
+the invariants above are the checks to trust.
+
+To regenerate after an intentional change, on a machine with the matching
+compiler:
 
 ```bash
 cp tests/resources/enzyme.nc /tmp/base.nc
 build/bin/Hybrid_EM_x64 /tmp/base.nc 100000 1000000 0.01 1e-5 -R 12345 -OV
-cp /tmp/base.nc tests/resources/enzyme_baseline.nc
+cp /tmp/base.nc tests/resources/enzyme_baseline_gfortran.nc   # or _intel.nc
 ```
+
+The Intel one can only be produced on Windows. It was captured by temporarily
+adding a step to the Windows CI job that ran the solver and uploaded the result
+as an artifact; do the same if it ever needs regenerating.

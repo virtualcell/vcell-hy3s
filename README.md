@@ -79,8 +79,16 @@ ctest --test-dir build --output-on-failure
 Five cases in about six seconds, on all three platforms. The substantive checks
 are exact rather than tolerance-based: the enzyme-kinetics model conserves total
 enzyme and total substrate at every timepoint by stoichiometry, independent of
-the trajectory. See [tests/README.md](tests/README.md), which also explains why
-one case runs the solver twenty times.
+the trajectory.
+
+The one trajectory-dependent check, against a committed baseline, needs a
+baseline per **compiler** rather than per platform: Fortran's `RANDOM_NUMBER`
+has no specified algorithm, so gfortran and Intel draw different streams from
+the same seed. Linux and both macOS architectures match each other to the bit;
+Windows has its own baseline.
+
+See [tests/README.md](tests/README.md), which also explains why one case runs
+the solver twenty times.
 
 ## Platforms
 

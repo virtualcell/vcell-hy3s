@@ -10,7 +10,8 @@
 #
 # The regression check against a committed baseline is separate and deliberately
 # narrow: it only holds while the trajectory is reproducible, which it is with a
-# fixed seed. See tests/README.md.
+# fixed seed, and only against a baseline from the same compiler. See
+# tests/README.md.
 
 set(HY3S_TEST_MODEL "${CMAKE_CURRENT_SOURCE_DIR}/resources/enzyme.nc")
 set(HY3S_TEST_WORKDIR "${CMAKE_CURRENT_BINARY_DIR}/work")
@@ -90,7 +91,7 @@ endif ()
 # epsilon and lambda are set high enough that every reaction stays a discrete
 # jump, so the run is an exact stochastic simulation and the SDE integrator --
 # the only thing that differs between the three binaries -- is not entered.
-# That is what lets all three be checked against one baseline.
+# That is what lets all three be checked against the same baseline.
 set(HY3S_FIXED_ARGS    100000 1000000 0.01 1e-5       -R 12345 -OV)
 # The adaptive binary takes an SDE tolerance ahead of the step size.
 set(HY3S_ADAPTIVE_ARGS 100000 1000000 0.01 1e-3 1e-5  -R 12345 -OV)
