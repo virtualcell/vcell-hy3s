@@ -90,13 +90,19 @@ GCC runtime libraries (Linux and macOS: bundled as unmodified shared libraries)
 libgfortran, libstdc++ and libgcc_s are part of GCC and are distributed under
 the GNU General Public License, version 3, with the GCC Runtime Library
 Exception, version 3.1, which permits their redistribution with programs
-compiled by GCC under terms of the program's choosing.
+compiled by GCC under terms of the program's choosing. On Linux, libgfortran
+is linked statically and libstdc++ is shipped as a shared library; on macOS,
+libgfortran and libgcc_s are shipped as shared libraries.
 https://www.gnu.org/licenses/gcc-exception-3.1.html
 
 libquadmath is part of GCC and is distributed under the GNU Lesser General
-Public License, version 2.1. It is shipped here as the unmodified shared
-library, which may be replaced by any compatible build. Its source code is
-part of GCC: https://gcc.gnu.org/
+Public License, version 2.1. On macOS it is shipped as the unmodified shared
+library, which may be replaced by any compatible build. On Linux x86_64 the
+parts libgfortran uses are linked statically; the complete source of these
+programs and the scripts that build them are at
+https://github.com/virtualcell/vcell-hy3s, so they can be relinked against a
+modified libquadmath. libquadmath's source code is part of GCC:
+https://gcc.gnu.org/
 
 --------------------------------------------------------------------------------
 Intel Fortran runtime (Windows executables, statically linked)

@@ -105,6 +105,9 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           build-args: HY3S_VERSION=${{ env.VERSION }}
           outputs: type=local,dest=dist
+          # No attestations: the local exporter would write them into the archive.
+          provenance: false
+          sbom: false
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
@@ -126,6 +129,9 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" dist
           ls -l dist
           test "$(cat dist/VERSION)" = "$VERSION"
+          # Exactly the contract's layout: the three solvers, libraries, LICENSE, VERSION.
+          extra=$(ls dist | grep -Ev '^(Hybrid_(EM|MIL|MIL_Adaptive)_x64|lib.*\.so\.[0-9.]+|LICENSE|VERSION)$' || true)
+          if [ -n "$extra" ]; then echo "::error::unexpected files in the archive: $extra"; exit 1; fi
           tar -C dist -czf "${{ matrix.asset }}.tgz" $(ls dist)
           tar -tzvf "${{ matrix.asset }}.tgz"
 
