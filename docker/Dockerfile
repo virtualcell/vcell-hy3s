@@ -24,8 +24,12 @@ FROM quay.io/pypa/${MANYLINUX}_aarch64 AS base-arm64
 
 # ---------------------------------------------------------------------------
 FROM base-${TARGETARCH} AS build
-ENV PATH=/opt/python/cp312-cp312/bin:${PATH}
-RUN python -m pip install --no-cache-dir 'conan>=2,<3' && gfortran --version | head -1
+ENV PATH=/opt/python/cp312-cp312/bin:${PATH} \
+    CC=gcc CXX=g++ FC=gfortran
+# cmake and ninja from PyPI: Conan's dependency builds (zlib, libcurl) use the
+# system's, and the manylinux image has no ninja.
+RUN python -m pip install --no-cache-dir 'conan>=2,<3' cmake ninja \
+ && gcc --version | head -1 && gfortran --version | head -1 && ninja --version
 WORKDIR /src
 
 # Dependencies first, keyed on the recipe alone: libcurl (messaging) and zlib,
