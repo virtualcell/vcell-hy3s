@@ -51,10 +51,16 @@ endif ()
 # it being switched off in every CI recipe. The intent was to stamp the binary
 # with a VCS revision, so the git describe already computed at the top level
 # serves, falling back when this is not a git checkout.
-if (GIT_DESCRIBE AND NOT GIT_DESCRIBE MATCHES "NOTFOUND")
-	set(HY3S_VERSION_STAMP "${GIT_DESCRIBE}")
-else ()
-	set(HY3S_VERSION_STAMP "unknown")
+#
+# A release build passes -DHY3S_VERSION_STAMP=<X.Y.Z> explicitly: the container
+# build has no .git to describe.
+set(HY3S_VERSION_STAMP "" CACHE STRING "Version printed in the solver banner (default: git describe)")
+if (NOT HY3S_VERSION_STAMP)
+	if (GIT_DESCRIBE AND NOT GIT_DESCRIBE MATCHES "NOTFOUND")
+		set(HY3S_VERSION_STAMP "${GIT_DESCRIBE}")
+	else ()
+		set(HY3S_VERSION_STAMP "unknown")
+	endif ()
 endif ()
 message(STATUS "Hy3S version stamp: ${HY3S_VERSION_STAMP}")
 

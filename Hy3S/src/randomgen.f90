@@ -154,7 +154,17 @@ do while (randomsize > 0)
 	start = start + min(goodnums,rsize - start)
 
 
-	randomnums(min(start+1,rsize):min(start+goodnums,rsize)) = f2(1:min(goodnums,rsize - start+1))
+	! The right-hand side used to take min(goodnums, rsize - start + 1)
+	! elements, one more than the left-hand side holds whenever
+	! 0 < rsize - start < goodnums. That is a shape mismatch -- undefined
+	! behaviour -- and under gfortran it corrupted the heap and aborted
+	! (SIGABRT) as soon as a Milstein run needed three or more normals per
+	! step. Euler-Maruyama never met it with fewer than three fast reactions.
+	! The count now matches the section being assigned, which leaves every
+	! previously well-defined case -- including the start == rsize one, where
+	! the last element is overwritten -- exactly as it was.
+	randomnums(min(start+1,rsize):min(start+goodnums,rsize)) = &
+		f2(1:min(start+goodnums,rsize) - min(start+1,rsize) + 1)
 	
 	start = start + min(goodnums, rsize - start)
 

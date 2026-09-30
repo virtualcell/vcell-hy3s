@@ -124,8 +124,8 @@ Real*8, intent(out) :: CLParameters(:)
 !***
 
 integer*4 :: RandSeedNum
-integer :: RandSize, status, neg, NARG, arglen, ierror, me, decpos, engpos
-integer :: CLcounter, i, ScaleFactor, ScaleFactorNeg
+integer :: RandSize, status, NARG, ierror, me
+integer :: CLcounter, i
 Real*8 :: ParameterNum
 
 Character(len=36) :: fileoption, RandSeedNumChar, ProgramName, arg, taskIDStr
@@ -194,74 +194,21 @@ do while (CLcounter < NARG)
 		endif
    else
 
-	      !Argument is a parameter
-	      arglen = len_trim(arg)
-
-   	      !Convert CL string argument to real number
-	      !Accept engineering symbol 'e' (e-2, etc) and multiply by a factor
-
-	      decpos = scan(arg,'.')
-	      engpos = scan(arg,'e')
-
-	      if (decpos == 0.AND.engpos == 0) THEN
-		 decpos = arglen + 1
-		 engpos = arglen + 1
-	      end if
-
-	      !'e' can't be the last character. There must be a number after it.
-
-	      if (decpos == 0.AND.engpos > 0.AND.engpos < arglen) THEN
-		 decpos = arglen - engpos
-	      end if
-
-	      if (decpos == 0.AND.engpos == arglen) THEN
-		 decpos = arglen + 1
-		 engpos = arglen + 1
-	      end if
-
-	      if (decpos > 0.AND.(engpos == 0.OR.engpos == arglen)) THEN
-		 engpos = arglen + 1
-	      end if
-
-	      if (arg(1:1) == '-') THEN
-		 neg = 1
-	      else
-		 neg = 0
-	      end if
-
-	      ParameterNum = real(0.000000,8)
-	      do i=1+neg,decpos-1
-		 ParameterNum = ParameterNum + real((ichar(arg(i:i)) - 48),8) * 10**(decpos - 1 - i - neg)
-	      end do
-
-	      do i=decpos+1, engpos - 1
-		 ParameterNum = ParameterNum + real((ichar(arg(i:i)) - 48),8) / 10**(i - decpos)
-	      end do
-
-	      if (engpos < arglen) THEN
-
-		if (arg(engpos+1:engpos+1) == '-') THEN
-		   ScaleFactorNeg = 1
-		else
-		   ScaleFactorNeg = 0
-		end if
-
-		ScaleFactor = real(0.0000000,8)
-		do i=engpos+1+ScaleFactorNeg, arglen
-		   ScaleFactor = ScaleFactor + real((ichar(arg(i:i)) - 48),8) * 10**(i - engpos - ScaleFactorNeg - 1)
-		end do
-
-	        if (ScaleFactorNeg == 1) THEN
-		   ParameterNum = ParameterNum / real(10**(ScaleFactor),8)
-		else
-		   ParameterNum = ParameterNum * real(10**(ScaleFactor),8)
-		end if
-
-	      end if
-
-
-	      if (neg == 1) THEN
-  	        ParameterNum = real(-1.00000,8) * ParameterNum
+	      !Argument is a parameter.
+	      !
+	      ! This used to be converted by hand, digit by digit, and the
+	      ! conversion was wrong in three ways: without a decimal point an
+	      ! exponent misplaced the mantissa ("1e9" parsed as 0, "1e-10" as
+	      ! 6.3e-9); a multi-digit exponent was read with its digits reversed
+	      ! ("1.0e-10" parsed as 0.1, "1.0e12" as 1e21); and a leading minus
+	      ! sign cost the integer part a power of ten ("-12.5" parsed as -1.5).
+	      ! VCell sends String.valueOf(double), which always has a decimal
+	      ! point and almost never a two-digit exponent, so it rarely showed.
+	      ! A list-directed read is the standard conversion and has none of it.
+	      read(arg, *, iostat=ierror) ParameterNum
+	      if (ierror /= 0) THEN
+		 print*, "Invalid numeric parameter: ", trim(arg)
+		 error stop 2
 	      end if
 
 	      NumCLParameters = NumCLParameters + 1
