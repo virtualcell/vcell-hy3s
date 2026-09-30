@@ -37,7 +37,7 @@ Every archive has, at its root and nothing else:
   Windows) — VCell's names;
 - the shared libraries they need that the OS does not provide;
 - `LICENSE` — this repository's MIT licence followed by the third-party notices
-  (`packaging/THIRD-PARTY-NOTICES.txt`: NetCDF, libcurl, zlib, the GCC and Intel
+  (`packaging/THIRD-PARTY-NOTICES.txt`: NetCDF, libcurl, the GCC and Intel
   runtimes);
 - `VERSION` — `X.Y.Z`.
 
