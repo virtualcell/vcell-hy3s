@@ -197,7 +197,9 @@ jobs:
           echo "$(wc -l < "$RUNNER_TEMP/broker.log") requests reached the broker; first and last:"
           head -1 "$RUNNER_TEMP/broker.log"; tail -1 "$RUNNER_TEMP/broker.log"
           grep -q 'WorkerEvent_Status=1001' "$RUNNER_TEMP/broker.log"      # JOB_PROGRESS
-          grep -q 'WorkerEvent_Status=1003' "$RUNNER_TEMP/broker.log"      # JOB_COMPLETED
+          # JOB_COMPLETED: one per run, all five of them -- a solver that exits before the
+          # messaging thread drains its queue loses exactly this last event.
+          test "$(grep -c 'WorkerEvent_Status=1003' "$RUNNER_TEMP/broker.log")" -eq 5
           grep -q 'SimKey=123456789' "$RUNNER_TEMP/broker.log"
           grep -q 'TaskID=0' "$RUNNER_TEMP/broker.log"
 
