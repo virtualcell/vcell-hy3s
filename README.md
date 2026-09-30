@@ -27,8 +27,27 @@ been built at all (see [Provenance](#provenance)).
 | `netcdf/` | vendored NetCDF 3.6.2 — C, F77 and F90 layers |
 | `vcell-messaging/` | submodule — progress messaging over the JMS REST bridge |
 | `cmake/` | `GetGitRevisionDescription` |
+| `docker/` | the release image: manylinux build, slim runtime, standard entrypoint |
+| `packaging/` | assembles the release archives (bundled libraries, `LICENSE`, `VERSION`) |
+| `tests/` | ctest suite; `statistical/` and `smoke/` for the release checks |
 
 There is no expression parser here; Hy3S does not use one.
+
+## Releases
+
+Tagged releases publish `linux64.tgz`, `linux64arm.tgz`, `mac64.tgz`
+(universal), `win64.zip` and `SHA256SUMS`, the image
+`ghcr.io/virtualcell/vcell-hy3s:<X.Y.Z>` and the Apptainer SIF
+`oras://ghcr.io/virtualcell/vcell-hy3s_singularity:<X.Y.Z>`. How they are
+built, what is in them, how they are verified (including a statistical check of
+every integrator against an exact solution), and how to cut one:
+[SOLVER-RELEASE.md](SOLVER-RELEASE.md).
+
+```bash
+docker run --rm ghcr.io/virtualcell/vcell-hy3s:1.0.0                 # version and executables
+docker run --rm -v "$PWD:/simdata" ghcr.io/virtualcell/vcell-hy3s:1.0.0 \
+    Hybrid_EM_x64 /simdata/model.nc 100.0 10.0 0.01 0.001 -OV
+```
 
 ## Build
 
@@ -176,6 +195,16 @@ defects rather than configuration:
   the output file untouched.** At `-O0` the store survives, which is why the
   solver looked fine there. This is why the test suite asserts that a run
   actually happened, and why one case repeats twenty times.
+
+Two more surfaced only once a test entered the SDE integrators, which the
+ctest suite deliberately never does (see [SOLVER-RELEASE.md](SOLVER-RELEASE.md#defects-fixed-for-the-first-release)):
+
+- **Both Milstein binaries aborted on their first SDE step.** `Normal_Rand`
+  assigned one more normal deviate than the array section it filled held — a
+  shape mismatch that corrupted the heap whenever a step needed three or more.
+- **The command-line number parser was wrong** for exponents without a decimal
+  point (`1e9` read as 0), for multi-digit exponents (read digit-reversed) and
+  for negative numbers. It is now a standard list-directed `read`.
 
 `msgwrapper` also drove the old in-tree `SimulationMessaging` — `create()`, an
 explicit `start()`, and `new WorkerEvent(JOB_PROGRESS, …)`. None of that exists
