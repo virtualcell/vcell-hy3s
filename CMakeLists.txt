@@ -17,6 +17,7 @@ project(vcell-hy3s LANGUAGES C CXX Fortran)
 #  Declare options
 ##############################################
 option(OPTION_TARGET_MESSAGING "Progress messaging (requires libcurl)" OFF)
+option(OPTION_TARGET_TESTS "Build the solver tests" ON)
 option(OPTION_EXTRA_CONFIG_INFO "Print useful cmake debug info while configuring" OFF)
 
 #############################################
@@ -27,12 +28,15 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 	set(LINUX TRUE)
 endif ()
 
-# Windows would need gfortran under MSYS2/MinGW plus the vendored NetCDF built
-# there. Not attempted; see README.md.
-if (WIN32 AND NOT MINGW)
-	message(FATAL_ERROR
-			"On Windows this would need MSYS2/MinGW-w64 for gfortran. MSVC has no Fortran "
-			"compiler, and the vendored NetCDF has not been built there.")
+# On Windows the intended pairing is Intel Fortran with MSVC, which is what
+# this was originally built with. MSVC has no Fortran compiler of its own, so
+# project() above will already have failed if none was supplied; this only
+# catches the case where some other Fortran compiler was found, since the
+# Windows-specific flags below assume Intel.
+if (WIN32 AND NOT MINGW AND NOT CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+	message(WARNING
+			"On Windows this expects Intel Fortran (ifx) alongside MSVC, but found "
+			"'${CMAKE_Fortran_COMPILER_ID}'. See README.md.")
 endif ()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -69,12 +73,38 @@ if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
 	# the original sources, which assume no 132-column limit.
 	set(HY3S_Fortran_FLAGS -cpp -ffree-line-length-none)
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-	set(HY3S_Fortran_FLAGS -fpp)
+	# The original Makefiles passed no preprocessor flag at all: Intel handled
+	# !DEC$ IF natively as compiler directives, with -D supplying the symbols.
+	# Converting them to #if is what makes a preprocessor pass necessary.
+	if (WIN32)
+		set(HY3S_Fortran_FLAGS /fpp)
+	else ()
+		set(HY3S_Fortran_FLAGS -fpp)
+	endif ()
 else ()
 	message(WARNING
 			"Unrecognised Fortran compiler ${CMAKE_Fortran_COMPILER_ID}; the sources need "
 			"the C preprocessor run over them and no flag is being added for that.")
 	set(HY3S_Fortran_FLAGS "")
+endif ()
+
+# /iface:mixed_str_len_arg governs where Fortran puts the hidden length that
+# accompanies every character argument: immediately after the string, rather
+# than all lengths appended at the end of the argument list. The vendored
+# NetCDF F77 layer is C compiled with -DPowerStationFortran, and cfortran.h
+# under that setting expects the first of those. Both sides have to agree.
+#
+# Unlike the preprocessor flag above this is set globally, and has to be: it is
+# a calling convention, so netcdf_f90 and the Hy3S targets that call into it
+# must be compiled the same way. The original build did exactly this, in two
+# places -- CMAKE_Fortran_FLAGS for the F90 layer and FOPTIONS in
+# Makefile.win32 for Hy3S itself.
+#
+# Dropping it during the repo split is what made all three Windows binaries
+# die with an access violation on their first NetCDF call: nf90_open passed a
+# path whose length the C side then read from the wrong place.
+if (WIN32 AND CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+	set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} /iface:mixed_str_len_arg")
 endif ()
 
 #############################################
@@ -101,6 +131,11 @@ if (OPTION_TARGET_MESSAGING)
 endif ()
 
 add_subdirectory(Hy3S)
+
+if (OPTION_TARGET_TESTS)
+	enable_testing()
+	add_subdirectory(tests)
+endif ()
 
 #############################################
 #  Debug output

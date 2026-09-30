@@ -69,10 +69,12 @@
 ! really be necessary. However, at least one compiler (PGI) comments
 ! on their absence, so they are included for completeness.
 !
-! gfortran provides IARGC as an intrinsic, and declaring it EXTERNAL here forces
-! an unresolved `iargc_` at link instead. The author's note above says these are
-! not really necessary, so they are kept only for compilers that wanted them.
-#ifndef __GFORTRAN__
+! gfortran and Intel Fortran both provide IARGC as an intrinsic, and declaring
+! it EXTERNAL here defeats that: gfortran is left with an unresolved `iargc_`
+! and ifx with an unresolved `IARGC`. Since the note above names PGI as the one
+! compiler that wanted these, the declaration is now made for PGI alone rather
+! than for everything that is not gfortran.
+#ifdef __PGI
       INTEGER :: IARGC
       EXTERNAL   IARGC
 #endif
@@ -124,10 +126,12 @@
 ! really be necessary. However, at least one compiler (PGI) comments
 ! on their absence, so they are included for completeness.
 !
-! gfortran provides IARGC as an intrinsic, and declaring it EXTERNAL here forces
-! an unresolved `iargc_` at link instead. The author's note above says these are
-! not really necessary, so they are kept only for compilers that wanted them.
-#ifndef __GFORTRAN__
+! gfortran and Intel Fortran both provide IARGC as an intrinsic, and declaring
+! it EXTERNAL here defeats that: gfortran is left with an unresolved `iargc_`
+! and ifx with an unresolved `IARGC`. Since the note above names PGI as the one
+! compiler that wanted these, the declaration is now made for PGI alone rather
+! than for everything that is not gfortran.
+#ifdef __PGI
       INTEGER :: IARGC
       EXTERNAL   IARGC
 #endif
@@ -193,10 +197,12 @@
 ! really be necessary. However, at least one compiler (PGI) comments
 ! on their absence, so they are included for completeness.
 !
-! gfortran provides IARGC as an intrinsic, and declaring it EXTERNAL here forces
-! an unresolved `iargc_` at link instead. The author's note above says these are
-! not really necessary, so they are kept only for compilers that wanted them.
-#ifndef __GFORTRAN__
+! gfortran and Intel Fortran both provide IARGC as an intrinsic, and declaring
+! it EXTERNAL here defeats that: gfortran is left with an unresolved `iargc_`
+! and ifx with an unresolved `IARGC`. Since the note above names PGI as the one
+! compiler that wanted these, the declaration is now made for PGI alone rather
+! than for everything that is not gfortran.
+#ifdef __PGI
       INTEGER :: IARGC
       EXTERNAL   IARGC
 #endif
