@@ -39,10 +39,13 @@ def is_macho(path: str) -> bool:
 
 def dependencies(path: str) -> list[str]:
     """The install names a Mach-O file links against (its own id excluded)."""
-    lines = run("otool", "-L", path).splitlines()[1:]
-    deps = [line.strip().split(" (")[0] for line in lines if line.strip()]
-    own_id = run("otool", "-D", path).splitlines()[1:]
-    return [d for d in deps if d not in [i.strip() for i in own_id]]
+    # Header lines end in ':' -- one per file, or one per slice of a universal
+    # file ("<path> (architecture arm64):"); everything else is an install name.
+    def names(out: str) -> list[str]:
+        return [line.strip().split(" (")[0] for line in out.splitlines()
+                if line.strip() and not line.rstrip().endswith(":")]
+    own_id = set(names(run("otool", "-D", path)))
+    return sorted({d for d in names(run("otool", "-L", path)) if d not in own_id})
 
 
 def rpaths(path: str) -> list[str]:
