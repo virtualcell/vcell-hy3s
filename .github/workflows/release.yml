@@ -162,7 +162,7 @@ jobs:
           work="$RUNNER_TEMP/image"; mkdir -p "$work"; chmod 0777 "$work"
           run="docker run --rm --read-only --user 4242:4242 -v $work:/simdata vcell-hy3s:ci"
           python tests/statistical/check_birth_death.py --launcher "$run" --work "$work" --container-work /simdata
-          cp tests/resources/enzyme.nc "$work/enzyme.nc"
+          cp tests/resources/enzyme.nc "$work/enzyme.nc"; chmod 0666 "$work/enzyme.nc"
           $run Hybrid_EM_x64 /simdata/enzyme.nc 100000 1000000 0.01 1e-5 -R 12345 -OV
           python tests/smoke/check_enzyme.py "$work/enzyme.nc" --baseline tests/resources/enzyme_baseline_gfortran.nc
 

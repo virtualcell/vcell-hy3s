@@ -6,7 +6,7 @@
 # The three solvers go at the root under VCell's names, next to every shared
 # library they need that is not part of glibc, each with a $ORIGIN rpath so the
 # directory runs wherever it is unpacked. glibc itself (libc, libm, libpthread,
-# libdl, librt, the loader) and libgcc_s are left to the host: the build runs on
+# libdl, librt, libmvec, the loader) and libgcc_s are left to the host: the build runs on
 # a manylinux_2_28 base, so glibc >= 2.28 is all a host needs. Messaging is
 # compiled in (a static, HTTP-only libcurl built in docker/Dockerfile), so the same
 # directory is what the container image puts on PATH.
@@ -19,7 +19,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 exes="Hybrid_EM_x64 Hybrid_MIL_x64 Hybrid_MIL_Adaptive_x64"
 
 # Libraries every Linux host provides, matched on the soname.
-system='^(linux-vdso|linux-gate|ld-linux[^ ]*|libc|libm|libpthread|libdl|librt|libutil|libresolv|libgcc_s)\.so'
+system='^(linux-vdso|linux-gate|ld-linux[^ ]*|libc|libm|libpthread|libdl|librt|libutil|libresolv|libmvec|libgcc_s)\.so'
 
 rm -rf "$out"
 mkdir -p "$out"

@@ -100,6 +100,10 @@ def main() -> int:
     for i, (label, exe, params, should_pass) in enumerate(RUNS):
         name = f"run{i}.nc"
         shutil.copyfile(args.model, os.path.join(work, name))
+        # Writable by whatever uid the launcher runs the solver as. Hy3S writes
+        # its solution into this file, and on a NetCDF error it prints and
+        # carries on, exiting 0 -- so a read-only copy looks like a silent no-op.
+        os.chmod(os.path.join(work, name), 0o666)
         if args.launcher:
             cmd = shlex.split(args.launcher) + [exe]
         else:
@@ -113,14 +117,17 @@ def main() -> int:
             continue
 
         with netcdf_file(os.path.join(work, name), "r", mmap=False) as f:
-            t = f.variables["Time"].data.copy()
-            x = f.variables["State"].data[:, :, 0].astype(float)   # (trials, times)
             written = getattr(f, "Data_Written", 0)
-        n = x.shape[0]
-        if written != 1 or not np.all(np.isfinite(x)) or np.all(x == 0):
+            if "Time" in f.variables and "State" in f.variables:
+                t = f.variables["Time"].data.copy()
+                x = f.variables["State"].data[:, :, 0].astype(float)   # (trials, times)
+            else:
+                t = x = None
+        if written != 1 or x is None or not np.all(np.isfinite(x)) or np.all(x == 0):
             failed.append(f"{label}: no solution written")
-            print("   no solution written")
+            print("   no solution written; solver output:\n" + proc.stdout[-3000:] + proc.stderr[-2000:])
             continue
+        n = x.shape[0]
         mean, var = exact_moments(t)
         s_mean, s_var = x.mean(axis=0), x.var(axis=0, ddof=1)
 
