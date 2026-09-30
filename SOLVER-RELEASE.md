@@ -82,9 +82,11 @@ Windows are built without it.
   (`vcell-messaging`). Without `-tid` it prints `[[[progress:…]]]` to stdout, as
   the desktop expects. With `-tid` and no reachable broker the run still
   completes (curl errors go to stderr).
-- libcurl and zlib are linked statically from Conan, with SSL off — the REST
-  bridge is plain HTTP — so messaging adds no library to the archive and no
-  OpenSSL to the build. That is what lets one Linux build serve both the
+- libcurl is built in `docker/Dockerfile` from its release tarball (pinned by
+  checksum) as a static, HTTP-only library — the REST bridge is plain HTTP —
+  so messaging adds no library to the archive and no OpenSSL or zlib to the
+  build. (Conan's Linux libcurl recipe goes through autotools, whose m4 does
+  not run on manylinux.) That is what lets one Linux build serve both the
   desktop archive and the image.
 - The desktop never passes `-tid`, and the Windows build cannot carry
   messaging (see README), so the macOS build leaves it out too: no curl, no

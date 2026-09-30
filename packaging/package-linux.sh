@@ -8,7 +8,7 @@
 # directory runs wherever it is unpacked. glibc itself (libc, libm, libpthread,
 # libdl, librt, the loader) and libgcc_s are left to the host: the build runs on
 # a manylinux_2_28 base, so glibc >= 2.28 is all a host needs. Messaging is
-# compiled in (libcurl and zlib linked statically from Conan), so the same
+# compiled in (a static, HTTP-only libcurl built in docker/Dockerfile), so the same
 # directory is what the container image puts on PATH.
 set -eu
 
