@@ -43,7 +43,7 @@ Every archive has, at its root and nothing else:
 
 | platform | bundled libraries | how they are found |
 | --- | --- | --- |
-| Linux | `libgfortran.so.5`, `libquadmath.so.0`, `libstdc++.so.6` | `$ORIGIN` RUNPATH on every file; glibc and `libgcc_s` come from the host. `packaging/package-linux.sh` fails the build if anything resolves outside the directory or needs a glibc symbol newer than 2.28. |
+| Linux | whatever `ldd` finds outside glibc — `libquadmath.so.0` (x86_64) and `libstdc++.so.6`; libgfortran is GCC 14's, linked statically, because the build image's shared one is GCC 8's with a different `RANDOM_NUMBER` generator | `$ORIGIN` RUNPATH on every file; glibc and `libgcc_s` come from the host. `packaging/package-linux.sh` fails the build if anything resolves outside the directory or needs a glibc symbol newer than 2.28. |
 | macOS | `libgfortran.5.dylib`, `libquadmath.0.dylib`, `libgcc_s.1.1.dylib` (Homebrew GCC 13) | every reference rewritten to `@loader_path/`, absolute `LC_RPATH`s deleted; `packaging/package_macos.py` fails if any non-system reference remains |
 | Windows | none | the MSVC and Intel Fortran runtimes are linked statically; `packaging/package-windows.ps1` walks every import and fails on a dynamic MSVC runtime |
 

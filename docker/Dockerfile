@@ -53,8 +53,15 @@ RUN curl -fsSL -o /tmp/curl.tar.xz "https://curl.se/download/curl-${CURL_VERSION
 WORKDIR /src
 COPY . .
 ARG HY3S_VERSION=unknown
+# -static-libgfortran: gcc-toolset's libgfortran.so is a linker script onto the
+# *system* libgfortran, GCC 8.5's, whose RANDOM_NUMBER is a different generator
+# (xorshift1024*) from every GCC >= 9 (xoshiro256**) -- so the same seed gave a
+# different trajectory here than on macOS or any current Linux, and the
+# committed baseline failed. The toolset's own libgfortran.a is GCC 14's; static
+# linking it (GCC Runtime Library Exception) puts every platform on one runtime.
 RUN cmake -B build -S . -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_EXE_LINKER_FLAGS="-static-libgfortran" \
       -DCMAKE_PREFIX_PATH=/opt/curl \
       -DOPTION_TARGET_MESSAGING=ON \
       -DHY3S_VERSION_STAMP="${HY3S_VERSION}" \
